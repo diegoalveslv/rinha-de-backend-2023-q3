@@ -1,0 +1,69 @@
+services:
+  api1: &api # API - Instância 01
+    image: docker.io/diegoalveslv/rinha-de-backend-2023-q3:latest
+    container_name: rinha-api1
+    depends_on:
+      - postgres
+#      - redis
+    expose:
+      - "8080"
+    environment:
+      DATASOURCE_URL: "jdbc:postgresql://rinha-db:5432/rinha"
+      REDIS_HOST: "rinha-redis"
+      SERVER_PORT: 8080
+      DATASOURCE_MAXIMUM_POOL_SIZE: 50
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -Xms400m -Xmx600m -XX:MaxMetaspaceSize=100m"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.45'
+          memory: '0.8GB'
+
+  api2: # API - Instância 02
+    <<: *api
+    container_name: rinha-api2
+
+  nginx: # Load Balancer
+    image: nginx:latest
+    container_name: rinha-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api1
+      - api2
+    ports:
+      - "9999:9999"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: '0.4GB'
+
+#  redis:
+#    image: redis:latest
+#    container_name: rinha-redis
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '0.10'
+#          memory: '0.2GB'
+
+  postgres: # Banco de dados
+    image: postgres:16.3-alpine
+    container_name: rinha-db
+    environment:
+      POSTGRES_DB: rinha
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      RINHA_SCHEMA: rinha
+      RINHA_USER: rinha_user
+      RINHA_PASSWORD: rinha_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-database.sh:/docker-entrypoint-initdb.d/init-database.sh
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: '1.0GB'
